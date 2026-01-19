@@ -35,7 +35,15 @@
           "cameraPermission": "Permitir que la app use la cámara para escanear códigos de barras."
         }
       ],
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "kotlinVersion": "1.9.25"
+          }
+        }
+      ]
     ],
     "web": {
       "favicon": "./assets/favicon.png"
