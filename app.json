@@ -1,27 +1,42 @@
 {
   "expo": {
-    "name": "app",
-    "slug": "app",
+    "name": "Inventario App",
+    "slug": "inventario-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#101922"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.inventario.app"
     },
     "android": {
+      "package": "com.inventario.app",
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#101922"
       },
-      "edgeToEdgeEnabled": true
+      "permissions": [
+        "CAMERA",
+        "NOTIFICATIONS"
+      ]
     },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Permitir que la app use la cámara para escanear códigos de barras."
+        }
+      ],
+      "expo-notifications"
+    ],
     "web": {
       "favicon": "./assets/favicon.png"
     }
