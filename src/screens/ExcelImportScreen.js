@@ -32,7 +32,10 @@ const ExcelImportScreen = () => {
       const workbook = XLSX.read(base64, { type: 'base64' });
       const firstSheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[firstSheetName];
-      const data = XLSX.utils.sheet_to_json(worksheet, { header: 'A' }); // A: Barcode, B: Ref, C: Name
+
+      // XLSX.utils.sheet_to_json with header: 'A' starts reading from the first row.
+      // If the first row contains data (not headers), it will be imported.
+      const data = XLSX.utils.sheet_to_json(worksheet, { header: 'A', range: 0 }); // range: 0 ensures it starts from Row 1
 
       // Expected format: data is array of objects { A: 'barcode', B: 'ref', C: 'name' }
       const batch = writeBatch(db);
@@ -67,7 +70,8 @@ const ExcelImportScreen = () => {
       <Text style={styles.title}>{i18n.t('import_excel')}</Text>
       <Text style={styles.description}>
         Upload an Excel file:{"\n"}
-        Col A: Barcode | Col B: Internal Ref | Col C: Name
+        Col A: Barcode | Col B: Internal Ref | Col C: Name{"\n"}
+        (Import starts from the first row)
       </Text>
 
       <TouchableOpacity style={styles.uploadCard} onPress={pickDocument} disabled={loading}>
