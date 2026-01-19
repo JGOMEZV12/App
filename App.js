@@ -13,6 +13,7 @@ import ChatDetailScreen from './src/screens/ChatDetailScreen';
 import ExcelImportScreen from './src/screens/ExcelImportScreen';
 import SuperAdminDashboard from './src/screens/SuperAdminDashboard';
 import CreateUserScreen from './src/screens/CreateUserScreen';
+import SettingsScreen from './src/screens/SettingsScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -72,6 +73,10 @@ const MainTabs = () => {
         headerShown: false,
         tabBarLabel: 'Chat',
         tabBarIcon: ({ color, size }) => <MessageCircle color={color} size={size} />
+      }} />
+      <Tab.Screen name="SettingsTab" component={SettingsScreen} options={{
+        tabBarLabel: 'Ajustes',
+        tabBarIcon: ({ color, size }) => <Settings color={color} size={size} />
       }} />
       {userData?.role === 'admin' && (
         <Tab.Screen name="AdminTab" component={AdminStack} options={{

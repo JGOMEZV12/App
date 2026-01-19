@@ -33,25 +33,37 @@ const ExcelImportScreen = () => {
       const firstSheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[firstSheetName];
 
-      // XLSX.utils.sheet_to_json with header: 'A' starts reading from the first row.
-      // If the first row contains data (not headers), it will be imported.
-      const data = XLSX.utils.sheet_to_json(worksheet, { header: 'A', range: 0 }); // range: 0 ensures it starts from Row 1
+      // Convert to JSON using Column Letters as keys
+      // The image shows headers in Row 1, and data starts in Row 2.
+      // However, to be safe, we read the whole sheet and skip only if it's the header.
+      const data = XLSX.utils.sheet_to_json(worksheet, { header: 'A' });
 
-      // Expected format: data is array of objects { A: 'barcode', B: 'ref', C: 'name' }
       const batch = writeBatch(db);
       let count = 0;
 
       for (const row of data) {
-        // A: Barcode, B: Internal Ref, C: Name
+        // Skip header row if it contains the word "Código"
+        if (String(row.A).includes('Código')) continue;
+
+        // A: Código de barras, B: Referencia interna, C: Nombre
         if (row.A && row.C) {
-          const productRef = doc(db, 'products', String(row.A));
+          // Normalizamos el código de barras eliminando espacios si los hay
+          const barcode = String(row.A).trim();
+          const productRef = doc(db, 'products', barcode);
+
           batch.set(productRef, {
-            barcode: String(row.A),
-            internalRef: String(row.B || ''),
-            name: String(row.C),
+            barcode: barcode,
+            internalRef: String(row.B || '').trim(),
+            name: String(row.C).trim(),
             updatedAt: new Date()
           });
           count++;
+
+          // Firestore batch limit is 500. For simplicity in this tool,
+          // we'll assume the list is reasonable or commit every 400.
+          if (count % 400 === 0) {
+            await batch.commit();
+          }
         }
       }
 
