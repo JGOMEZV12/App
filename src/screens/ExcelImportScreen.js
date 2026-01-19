@@ -32,18 +32,20 @@ const ExcelImportScreen = () => {
       const workbook = XLSX.read(base64, { type: 'base64' });
       const firstSheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[firstSheetName];
-      const data = XLSX.utils.sheet_to_json(worksheet, { header: 'A' }); // A: Barcode, B: Name
+      const data = XLSX.utils.sheet_to_json(worksheet, { header: 'A' }); // A: Barcode, B: Ref, C: Name
 
-      // Expected format: data is array of objects { A: 'barcode', B: 'name' }
+      // Expected format: data is array of objects { A: 'barcode', B: 'ref', C: 'name' }
       const batch = writeBatch(db);
       let count = 0;
 
       for (const row of data) {
-        if (row.A && row.B) {
+        // A: Barcode, B: Internal Ref, C: Name
+        if (row.A && row.C) {
           const productRef = doc(db, 'products', String(row.A));
           batch.set(productRef, {
             barcode: String(row.A),
-            name: String(row.B),
+            internalRef: String(row.B || ''),
+            name: String(row.C),
             updatedAt: new Date()
           });
           count++;
@@ -64,7 +66,8 @@ const ExcelImportScreen = () => {
     <View style={styles.container}>
       <Text style={styles.title}>{i18n.t('import_excel')}</Text>
       <Text style={styles.description}>
-        Upload an Excel file with Column A as Barcode and Column B as Product Name.
+        Upload an Excel file:{"\n"}
+        Col A: Barcode | Col B: Internal Ref | Col C: Name
       </Text>
 
       <TouchableOpacity style={styles.uploadCard} onPress={pickDocument} disabled={loading}>

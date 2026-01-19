@@ -51,7 +51,7 @@ const translations = {
 };
 
 i18n.translations = translations;
-i18n.locale = Localization.locale || 'es';
+i18n.locale = Localization.locale ? Localization.locale.split('-')[0] : 'es';
 i18n.fallbacks = true;
 
 export default i18n;
