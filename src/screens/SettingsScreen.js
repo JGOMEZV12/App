@@ -33,7 +33,7 @@ const SettingsScreen = () => {
       <View style={styles.infoSection}>
         <View style={styles.infoRow}>
           <Shield size={20} color="#137fec" />
-          <Text style={styles.infoText}>Rol: {userData?.role === 'admin' ? 'Administrador' : 'Usuario'}</Text>
+          <Text style={styles.infoText}>Rol: {userData?.role?.toLowerCase()?.trim() === 'admin' ? 'Administrador' : 'Usuario'}</Text>
         </View>
         <View style={styles.infoRow}>
           <MapPin size={20} color="#137fec" />

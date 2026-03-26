@@ -78,7 +78,7 @@ const MainTabs = () => {
         tabBarLabel: 'Ajustes',
         tabBarIcon: ({ color, size }) => <Settings color={color} size={size} />
       }} />
-      {userData?.role === 'admin' && (
+      {userData?.role?.toLowerCase()?.trim() === 'admin' && (
         <Tab.Screen name="AdminTab" component={AdminStack} options={{
           headerShown: false,
           tabBarLabel: 'Admin',
