@@ -10,6 +10,8 @@ import i18n from '../i18n';
 
 const ExcelImportScreen = () => {
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [total, setTotal] = useState(0);
 
   const pickDocument = async () => {
     try {
@@ -27,6 +29,7 @@ const ExcelImportScreen = () => {
 
   const processExcel = async (uri) => {
     setLoading(true);
+    setProgress(0);
     try {
       const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
       const workbook = XLSX.read(base64, { type: 'base64' });
@@ -34,15 +37,17 @@ const ExcelImportScreen = () => {
       const worksheet = workbook.Sheets[firstSheetName];
 
       // Convert to JSON using Column Letters as keys
-      // The image shows headers in Row 1, and data starts in Row 2.
-      // However, to be safe, we read the whole sheet and skip only if it's the header.
       const data = XLSX.utils.sheet_to_json(worksheet, { header: 'A' });
+      setTotal(data.length);
 
       let batch = writeBatch(db);
       let count = 0;
       let pendingOps = 0;
 
-      for (const row of data) {
+      for (let i = 0; i < data.length; i++) {
+        const row = data[i];
+        if (i % 100 === 0) setProgress(i);
+
         // Skip header row if it contains "Código" or "Barcode"
         const cellA = String(row.A || '').toLowerCase();
         if (cellA.includes('código') || cellA.includes('barcode')) continue;
@@ -89,6 +94,7 @@ const ExcelImportScreen = () => {
       if (pendingOps > 0) {
         await batch.commit();
       }
+      setProgress(data.length);
       Alert.alert('Success', `Imported ${count} products successfully.`);
     } catch (error) {
       console.error(error);
@@ -110,7 +116,12 @@ const ExcelImportScreen = () => {
 
       <TouchableOpacity style={styles.uploadCard} onPress={pickDocument} disabled={loading}>
         {loading ? (
-          <ActivityIndicator size="large" color="#137fec" />
+          <View style={{ alignItems: 'center' }}>
+            <ActivityIndicator size="large" color="#137fec" />
+            <Text style={styles.progressText}>
+              Processing: {progress} / {total}
+            </Text>
+          </View>
         ) : (
           <>
             <FileUp size={48} color="#137fec" />
@@ -137,6 +148,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   uploadText: { color: '#137fec', marginTop: 15, fontWeight: 'bold', fontSize: 16 },
+  progressText: { color: '#fff', marginTop: 15, fontSize: 14, fontWeight: 'bold' },
 });
 
 export default ExcelImportScreen;
