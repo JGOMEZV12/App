@@ -38,36 +38,57 @@ const ExcelImportScreen = () => {
       // However, to be safe, we read the whole sheet and skip only if it's the header.
       const data = XLSX.utils.sheet_to_json(worksheet, { header: 'A' });
 
-      const batch = writeBatch(db);
+      let batch = writeBatch(db);
       let count = 0;
+      let pendingOps = 0;
 
       for (const row of data) {
-        // Skip header row if it contains the word "Código"
-        if (String(row.A).includes('Código')) continue;
+        // Skip header row if it contains "Código" or "Barcode"
+        const cellA = String(row.A || '').toLowerCase();
+        if (cellA.includes('código') || cellA.includes('barcode')) continue;
 
-        // A: Código de barras, B: Referencia interna, C: Nombre
-        if (row.A && row.C) {
-          // Normalizamos el código de barras eliminando espacios si los hay
+        // Ensure at least Column A (Barcode) is present
+        if (row.A) {
           const barcode = String(row.A).trim();
-          const productRef = doc(db, 'products', barcode);
+          if (!barcode) continue;
 
-          batch.set(productRef, {
-            barcode: barcode,
-            internalRef: String(row.B || '').trim(),
-            name: String(row.C).trim(),
-            updatedAt: new Date()
-          });
-          count++;
+          let internalRef = '';
+          let name = '';
 
-          // Firestore batch limit is 500. For simplicity in this tool,
-          // we'll assume the list is reasonable or commit every 400.
-          if (count % 400 === 0) {
-            await batch.commit();
+          // Logic to handle 2 or 3 columns:
+          // If C is present: A=Barcode, B=InternalRef, C=Name
+          // If only B is present: A=Barcode, B=Name
+          if (row.C) {
+            internalRef = String(row.B || '').trim();
+            name = String(row.C).trim();
+          } else if (row.B) {
+            name = String(row.B).trim();
+          }
+
+          if (name) {
+            const productRef = doc(db, 'products', barcode);
+            batch.set(productRef, {
+              barcode: barcode,
+              internalRef: internalRef,
+              name: name,
+              updatedAt: new Date()
+            });
+            count++;
+            pendingOps++;
+
+            // Firestore batch limit is 500.
+            if (pendingOps >= 400) {
+              await batch.commit();
+              batch = writeBatch(db);
+              pendingOps = 0;
+            }
           }
         }
       }
 
-      await batch.commit();
+      if (pendingOps > 0) {
+        await batch.commit();
+      }
       Alert.alert('Success', `Imported ${count} products successfully.`);
     } catch (error) {
       console.error(error);
@@ -82,8 +103,9 @@ const ExcelImportScreen = () => {
       <Text style={styles.title}>{i18n.t('import_excel')}</Text>
       <Text style={styles.description}>
         Upload an Excel file:{"\n"}
-        Col A: Barcode | Col B: Internal Ref | Col C: Name{"\n"}
-        (Import starts from the first row)
+        Format 1: Col A: Barcode | Col B: Internal Ref | Col C: Name{"\n"}
+        Format 2: Col A: Barcode | Col B: Name{"\n"}
+        (Headers are automatically skipped)
       </Text>
 
       <TouchableOpacity style={styles.uploadCard} onPress={pickDocument} disabled={loading}>
