@@ -46,7 +46,6 @@ const ExcelImportScreen = () => {
 
       for (let i = 0; i < data.length; i++) {
         const row = data[i];
-        if (i % 100 === 0) setProgress(i);
 
         // Skip header row if it contains "Código" or "Barcode"
         const cellA = String(row.A || '').toLowerCase();
@@ -81,11 +80,16 @@ const ExcelImportScreen = () => {
             count++;
             pendingOps++;
 
-            // Firestore batch limit is 500.
-            if (pendingOps >= 400) {
+            // Update progress based on actual count
+            if (count % 50 === 0) setProgress(count);
+
+            // Firestore batch limit is 500. Using smaller batches for better feedback.
+            if (pendingOps >= 100) {
               await batch.commit();
               batch = writeBatch(db);
               pendingOps = 0;
+              // Yield the JS thread briefly to allow UI to update
+              await new Promise(resolve => setTimeout(resolve, 0));
             }
           }
         }
