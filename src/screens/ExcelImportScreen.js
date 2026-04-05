@@ -3,8 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } fr
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import * as XLSX from 'xlsx';
-import { collection, doc, setDoc, writeBatch } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { supabase } from '../config/supabase';
 import { FileUp } from 'lucide-react-native';
 import i18n from '../i18n';
 
@@ -36,22 +35,17 @@ const ExcelImportScreen = () => {
       const firstSheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[firstSheetName];
 
-      // Convert to JSON using Column Letters as keys
       const data = XLSX.utils.sheet_to_json(worksheet, { header: 'A' });
       setTotal(data.length);
 
-      let batch = writeBatch(db);
+      const productsToUpsert = [];
       let count = 0;
-      let pendingOps = 0;
 
       for (let i = 0; i < data.length; i++) {
         const row = data[i];
-
-        // Skip header row if it contains "Código" or "Barcode"
         const cellA = String(row.A || '').toLowerCase();
         if (cellA.includes('código') || cellA.includes('barcode')) continue;
 
-        // Ensure at least Column A (Barcode) is present
         if (row.A) {
           const barcode = String(row.A).trim();
           if (!barcode) continue;
@@ -59,9 +53,7 @@ const ExcelImportScreen = () => {
           let internalRef = '';
           let name = '';
 
-          // Logic to handle 2 or 3 columns:
-          // If C is present: A=Barcode, B=InternalRef, C=Name
-          // If only B is present: A=Barcode, B=Name
+          // 3-column priority: A=Barcode, B=InternalRef, C=Name
           if (row.C) {
             internalRef = String(row.B || '').trim();
             name = String(row.C).trim();
@@ -70,39 +62,37 @@ const ExcelImportScreen = () => {
           }
 
           if (name) {
-            const productRef = doc(db, 'products', barcode);
-            batch.set(productRef, {
+            productsToUpsert.push({
               barcode: barcode,
-              internalRef: internalRef,
+              internal_ref: internalRef,
               name: name,
-              updatedAt: new Date()
+              updated_at: new Date().toISOString()
             });
             count++;
-            pendingOps++;
-
-            // Update progress based on actual count
-            if (count % 50 === 0) setProgress(count);
-
-            // Firestore batch limit is 500. Using smaller batches for better feedback.
-            if (pendingOps >= 100) {
-              await batch.commit();
-              batch = writeBatch(db);
-              pendingOps = 0;
-              // Yield the JS thread briefly to allow UI to update
-              await new Promise(resolve => setTimeout(resolve, 0));
-            }
           }
+        }
+
+        // Batch upsert to Supabase (e.g., every 500 records)
+        if (productsToUpsert.length >= 500) {
+          const { error } = await supabase.from('products').upsert(productsToUpsert, { onConflict: 'barcode' });
+          if (error) throw error;
+          setProgress(i + 1);
+          productsToUpsert.length = 0; // Clear the array
+          await new Promise(resolve => setTimeout(resolve, 0));
         }
       }
 
-      if (pendingOps > 0) {
-        await batch.commit();
+      // Final remaining records
+      if (productsToUpsert.length > 0) {
+        const { error } = await supabase.from('products').upsert(productsToUpsert, { onConflict: 'barcode' });
+        if (error) throw error;
       }
+
       setProgress(data.length);
       Alert.alert('Success', `Imported ${count} products successfully.`);
     } catch (error) {
       console.error(error);
-      Alert.alert('Error', 'Failed to process Excel file.');
+      Alert.alert('Error', `Failed to process Excel file: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -113,8 +103,7 @@ const ExcelImportScreen = () => {
       <Text style={styles.title}>{i18n.t('import_excel')}</Text>
       <Text style={styles.description}>
         Upload an Excel file:{"\n"}
-        Format 1: Col A: Barcode | Col B: Internal Ref | Col C: Name{"\n"}
-        Format 2: Col A: Barcode | Col B: Name{"\n"}
+        Format: Col A: Barcode | Col B: Internal Ref | Col C: Name{"\n"}
         (Headers are automatically skipped)
       </Text>
 

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ScrollView 
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { doc, getDoc, collection, addDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import { supabase } from '../config/supabase';
 import { useAuth } from '../context/AuthContext';
 import i18n from '../i18n';
 import { X, Check } from 'lucide-react-native';
@@ -30,11 +31,19 @@ const ScannerScreen = ({ navigation }) => {
 
   const handleBarCodeScanned = async ({ type, data }) => {
     setScanned(true);
-    const productRef = doc(db, 'products', data);
-    const productSnap = await getDoc(productRef);
 
-    if (productSnap.exists()) {
-      setProduct({ barcode: data, ...productSnap.data() });
+    const { data: productData, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('barcode', data)
+      .single();
+
+    if (productData) {
+      setProduct({
+        barcode: data,
+        name: productData.name,
+        internalRef: productData.internal_ref
+      });
     } else {
       setProduct({ barcode: data, name: 'Unknown Product' });
       Alert.alert('Unknown Barcode', 'This barcode is not in the database.');
